@@ -18,8 +18,6 @@ MetaFold-RNA/
 ├── MetaFold/
 │   ├── __init__.py
 │   ├── data.py
-│   ├── loss.py
-│   ├── metalearner.py
 │   ├── model.py
 │   ├── postprocess.py
 │   └── utils.py
