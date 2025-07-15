@@ -1,8 +1,7 @@
 # 🧬 **MetaFold-RNA**
 
-> **MetaFold-RNA** is a deep learning toolkit for RNA secondary structure prediction, featuring meta-learning and advanced neural architectures.
+MetaFold-RNA is a deep learning toolkit for RNA secondary structure prediction, featuring meta-learning and advanced neural architectures.
 
----
 
 ## ✨ **Features**
 
@@ -11,7 +10,6 @@
 - ⚡ **GPU acceleration** for fast inference
 - 📄 **Standard output formats**
 
----
 
 ## 📁 **Directory Structure**
 
@@ -29,8 +27,6 @@ MetaFold-RNA/
 └── README.md
 ```
 
----
-
 ## 🛠️ **Requirements**
 
 | Package   | Version    |
@@ -45,7 +41,6 @@ MetaFold-RNA/
 pip install torch numpy tqdm
 ```
 
----
 
 ## 🚀 **Quick Start**
 
@@ -65,7 +60,6 @@ pip install torch numpy tqdm
    python run_metafold.py --fasta-path ./dataset/test.fasta --model-path ./model_checkpoint/model_pdb.pth --device cuda:0 --output-path ./output
    ```
 
----
 
 ## ⚙️ **Arguments**
 
@@ -77,7 +71,7 @@ pip install torch numpy tqdm
 | `--device`         | Device for inference (`cuda:0` or `cpu`)    |
 | `--output-path`    | Output directory                            |
 
----
+
 
 ## 📖 **Citation**
 
