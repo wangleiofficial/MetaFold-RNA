@@ -1,7 +1,7 @@
 import os
 import pickle
 import numpy as np
-from MetaFold.utils import feature, metrics_fn, save2bpseq
+from MetaFold.utils import metrics_fn, save2bpseq, creatmat
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -28,8 +28,10 @@ def evaluate(model, dataloader, device):
             seq_feature = batch["seq_encoded"].to(device) 
             one_hot_seq_feature = F.one_hot(seq_feature, num_classes=4)
 
-            feature_outer = feature(one_hot_seq_feature[0].cpu().numpy(), rna_length, rna_seq)
-            pair_feature = torch.tensor(feature_outer, dtype=torch.float).to(device)
+            # Create pair feature matrix
+            pair_feature = creatmat(rna_seq)
+            pair_feature = torch.tensor(pair_feature, dtype=torch.float).to(device)
+            pair_feature = pair_feature.unsqueeze(0)  # add channel dimension
             pair_feature = pair_feature.unsqueeze(0)  # add batch dimension
 
             logits = model(predicts, seq_feature, pair_feature)

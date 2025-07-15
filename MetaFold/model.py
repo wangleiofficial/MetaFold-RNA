@@ -6,6 +6,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # =================================================================================
+# Section 0: Relative Position Encoding
+# ================================================================================= 
+class RelativePositionEncoding(nn.Module):
+    def __init__(self, bin_num, c_z):
+        super().__init__()
+        self.bins = torch.linspace(-32, 32, steps=bin_num)  # shape: [N_bins]
+        self.linear = nn.Linear(len(self.bins), c_z)
+
+    def forward(self, L, device):
+        """
+        residue_idx: [B, L]
+        Output: [B, L, L, c_z]
+        """
+        residue_idx = torch.arange(L, device=device)
+        residue_idx = residue_idx.unsqueeze(0) # [1, L]
+        # B, L = residue_idx.shape
+        diff = residue_idx.unsqueeze(2) - residue_idx.unsqueeze(1)  # [B, L, L]
+        diff = diff.clamp(min=self.bins[0].item(), max=self.bins[-1].item())  # clip to bin range
+        one_hot = one_hot_with_bins(diff, self.bins.to(residue_idx.device))   # [B, L, L, N_bins]
+        return self.linear(one_hot)  # [B, L, L, c_z]
+
+def one_hot_with_bins(x, bins):
+    """
+    x: [B, L, L], integer diffs
+    bins: [N_bins], e.g., [-32, ..., 32]
+    Output: one-hot encoding: [B, L, L, N_bins]
+    """
+    x = x.unsqueeze(-1)  # [B, L, L, 1]
+    dist = torch.abs(x - bins.view(1, 1, 1, -1))  # [B, L, L, N_bins]
+    min_idx = torch.argmin(dist, dim=-1)  # [B, L, L]
+    one_hot = torch.nn.functional.one_hot(min_idx, num_classes=bins.shape[0])  # [B, L, L, N_bins]
+    return one_hot.float()
+
+# =================================================================================
 # Section 1: 2D feture extraction blocks
 # =================================================================================
 
@@ -93,8 +127,8 @@ class OuterProductMean(nn.Module):
 
 class PairwiseBiasAttention(nn.Module):
     """
-    2D -> 1D 通信模块.
-    一个能够接收2D配对偏置的特殊多头注意力机制。
+    Pairwise Bias Attention mechanism.
+    This module computes attention scores based on pairwise representations.
     """
     def __init__(self, embed_dim, num_heads, pair_dim):
         super().__init__()
@@ -133,8 +167,7 @@ class PairwiseBiasAttention(nn.Module):
 
 class CoEvolutionBlock(nn.Module):
     """
-    协同进化模块。
-    在一个模块内完成 1D->2D, 2D更新, 2D->1D, 1D更新的完整闭环。
+    Co-evolution block that combines 1D and 2D representations.
     """
     def __init__(self, seq_dim=64, pair_dim=32, num_heads=4, dropout=0.1):
         super().__init__()
@@ -156,7 +189,7 @@ class CoEvolutionBlock(nn.Module):
 
     def forward(self, seq_repr, pair_repr):
         # seq_repr: [B, L, seq_dim]
-        # pair_repr: [B, L, L, pair_dim] - 注意，通道在最后维
+        # pair_repr: [B, L, L, pair_dim]
         
         # 1. 1D -> 2D
         op_update = self.outer_product_mean(self.attn_norm(seq_repr)) # -> [B, L, L, pair_dim]
@@ -186,6 +219,7 @@ class MetaLearnerNet_v3(nn.Module):
 
         # --- Stem ---
         self.seq_embedding = nn.Embedding(num_embeddings=num_categories, embedding_dim=seq_dim)
+        self.rel_pos = RelativePositionEncoding(bin_num=32*2+1, c_z=pair_dim)
         
         total_pair_channels = pair_feature_channels + predicts_channels
         self.pair_stem = nn.Conv2d(total_pair_channels, pair_dim, kernel_size=1)
@@ -212,6 +246,9 @@ class MetaLearnerNet_v3(nn.Module):
         initial_pair_repr = torch.cat([pair_feature, predicts], dim=1)
         pair_repr = self.pair_stem(initial_pair_repr) # -> [B, pair_dim, L, L]
         pair_repr = pair_repr.permute(0, 2, 3, 1)    # -> [B, L, L, pair_dim]
+
+        rel_bias = self.rel_pos(seq_repr.size(1), seq_repr.device)  # [B, L, L, pair_dim]
+        pair_repr = pair_repr + rel_bias
 
         # 2. Co-evolution blocks
         for block in self.co_evolution_blocks:
