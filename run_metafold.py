@@ -121,7 +121,7 @@ if __name__ == '__main__':
                               num_categories=4,
                               seq_dim=64,
                               pair_dim=32,
-                              pair_feature_channels=17,
+                              pair_feature_channels=1,
                               predicts_channels=4).to(device)
 
     model.load_state_dict(torch.load(args.model_path))
